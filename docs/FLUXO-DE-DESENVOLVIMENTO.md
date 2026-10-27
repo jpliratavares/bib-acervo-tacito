@@ -175,5 +175,32 @@ O primeiro incremento da Entrega 2 foi o estado de ativação do usuário. O tes
 `desativarEReativarUsuario` foi escrito e registrado antes da implementação no commit
 `9310753`, seguindo o passo **Red**. A entidade `Usuario` passou a manter o estado e
 o serviço apenas delega a transição, enquanto `UsuarioView` passa a mostrar o valor
-real. A próxima iteração integrará empréstimos ativos para impedir a desativação de
-quem ainda possui empréstimos, com novo teste escrito antes da regra.
+real. A integração com empréstimos ativos, a fila de reservas e a persistência estão
+nos ciclos da seção 10.
+
+## 10. Ciclos TDD da Entrega 2
+
+Cada requisito abaixo teve o teste registrado antes da implementação. O comando de
+validação da suíte foi `mvn -B verify`. O pacote `contrato` permaneceu intacto. A baixa
+usa `StatusExemplar.INDISPONIVEL`, porque o enum congelado não declara `BAIXADO`: o
+exemplar continua no total do item e deixa de contar como disponível.
+
+| Ciclo | Red | Green |
+|---|---|---|
+| Baixa de exemplar | `0e755e43dee3259626f976aa66bbddc1f21c1d8c` `test: adicionar testes para baixa de exemplar no acervo` | `991107f328b4aa764d30f497a32c8b3c680f7fcd` `feat: implementar baixa de exemplar no acervo` |
+| Bloqueio de desativação e empréstimos | `f2e5fb9620fa878820a7e310da0b1da61908adb6` `test: especificar bloqueio de desativacao de usuario com emprestimo ativo` | `411061c17fed7061a98b35422416f8a808b37d9d` `feat: implementar servico de emprestimos, devolucoes e atrasos` |
+| Fila de reservas | `8dac2d2b1bd686ecdccf013b5e734b2062cff273` `test: adicionar cenarios de fila de reservas por item e cancelamento` | `17b68232136147d3bd3b24dfa5ca49966a624081` `feat: implementar fila de reservas e integracao com emprestimos` |
+| Persistência | `4d9da6a5362fbfd53707553f1b197b6bde2739b6` `test: especificar persistencia de dados da biblioteca` | `0f032429453d9625aeb3b1869b43ae4c81babf69` `feat: implementar salvar e carregar estado da biblioteca` |
+
+Regras fixadas por esses testes:
+
+- baixa rejeita tombo vazio, inexistente, emprestado ou já baixado;
+- usuário com empréstimo não devolvido não é desativado, e `emprestimosAtivos` reflete essa contagem;
+- empréstimo exige exemplar `DISPONIVEL`, usuário ativo e no máximo 3 empréstimos em aberto;
+- a devolução não aceita data anterior à do empréstimo;
+- atraso é estrito: a data de consulta precisa ser posterior à data prevista, e empréstimo devolvido não entra na lista;
+- reserva só ocorre quando não há exemplar livre para empréstimo imediato e existe exemplar circulável;
+- a fila é FIFO por item; cancelar ou atender uma reserva renumera as posições a partir de 1;
+- no empréstimo, as cópias disponíveis ficam comprometidas com quem está à frente na fila;
+- `salvar`/`carregar` restauram o subtipo `JogoDeTabuleiro`, os status, o histórico e a ordem da fila;
+- arquivo ausente, conteúdo inválido ou falha de escrita lançam `PersistenciaException` sem descartar o estado em memória quando a leitura falha.

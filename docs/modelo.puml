@@ -1,5 +1,5 @@
 @startuml
-title Modelo de domínio — Acervo de jogos de tabuleiro (Entrega 1)
+title Modelo de domínio — Acervo de jogos de tabuleiro (Entrega 2)
 
 skinparam classAttributeIconSize 0
 hide empty members
@@ -15,21 +15,40 @@ class Item {
   + exemplares() : List<Exemplar>
 }
 
+class JogoDeTabuleiro {
+  - jogadoresMinimos : int {readOnly}
+  - jogadoresMaximos : int {readOnly}
+}
+
 class Exemplar {
   - tombo : String {readOnly}
   - codigoDoItem : String {readOnly}
   - status : StatusExemplar
+  + baixar()
+  + marcarEmprestado()
+  + disponibilizar()
 }
 
 class Usuario {
   - matricula : String {readOnly}
   - nome : String {readOnly}
+  - ativo : boolean
 }
 
-class JogoDeTabuleiro {
+class Emprestimo {
+  - id : String {readOnly}
+  - tombo : String {readOnly}
+  - matricula : String {readOnly}
+  - dataDoEmprestimo : LocalDate {readOnly}
+  - dataPrevistaDeDevolucao : LocalDate {readOnly}
+  - dataDaDevolucao : LocalDate
+}
+
+class Reserva {
+  - id : String {readOnly}
   - codigoDoItem : String {readOnly}
-  - jogadoresMinimos : int {readOnly}
-  - jogadoresMaximos : int {readOnly}
+  - matricula : String {readOnly}
+  - dataDaReserva : LocalDate {readOnly}
 }
 
 class AcervoEmMemoria {
@@ -41,18 +60,51 @@ class UsuariosEmMemoria {
   - usuariosPorMatricula : Map<String, Usuario>
 }
 
+class EmprestimosEmMemoria {
+  - emprestimos : List<Emprestimo>
+  - filasPorItem : Map<String, List<Reserva>>
+  - reservasPorId : Map<String, Reserva>
+}
+
+class BibliotecaInicial {
+  - arquivoPersistencia : Path
+  + salvar()
+  + carregar()
+}
+
+class EstadoBiblioteca {
+  - itens : List<Item>
+  - usuarios : List<Usuario>
+  - emprestimos : List<Emprestimo>
+  - reservas : List<Reserva>
+}
+
+Item <|-- JogoDeTabuleiro
 Item "1" *-- "0..*" Exemplar : possui
-Item "1" <-- "0..1" JogoDeTabuleiro : especializa
 AcervoEmMemoria o-- Item : indexa por código
 AcervoEmMemoria o-- Exemplar : indexa por tombo
 UsuariosEmMemoria o-- Usuario : indexa por matrícula
+EmprestimosEmMemoria o-- Emprestimo : histórico
+EmprestimosEmMemoria o-- Reserva : fila por item
+BibliotecaInicial *-- AcervoEmMemoria
+BibliotecaInicial *-- UsuariosEmMemoria
+BibliotecaInicial *-- EmprestimosEmMemoria
+BibliotecaInicial ..> EstadoBiblioteca : persiste
 
 note bottom of JogoDeTabuleiro
 Regra autoral:
 1 <= jogadoresMinimos <= jogadoresMaximos
+A serialização preserva este subtipo.
 end note
 
-note bottom of AcervoEmMemoria
-O tombo é único no acervo inteiro.
+note bottom of Exemplar
+Baixa marca INDISPONIVEL,
+o estado do contrato para fora de circulação.
+O exemplar continua no total e sai dos disponíveis.
+end note
+
+note bottom of EmprestimosEmMemoria
+Limite de 3 empréstimos e prazo de 14 dias.
+A fila de reserva é FIFO por item.
 end note
 @enduml

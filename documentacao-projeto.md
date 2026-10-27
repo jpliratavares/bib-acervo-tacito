@@ -571,13 +571,8 @@ LimiteDeEmprestimosExcedidoException
 OperacaoNaoPermitidaException
 ```
 
-Na versão atual do projeto, esse módulo ainda está representado pela implementação:
-
-```java
-EmprestimosNaoImplementados
-```
-
-e faz parte das próximas etapas de desenvolvimento.
+Na Entrega 2 esse módulo é implementado por `EmprestimosEmMemoria`, que aplica o limite,
+o prazo, a devolução, os atrasos e a fila FIFO de reservas.
 
 ---
 
@@ -990,7 +985,10 @@ PersistenciaException
 
 para representar falhas relacionadas à leitura ou escrita dos dados.
 
-No estágio atual do projeto, a implementação efetiva da persistência ainda não foi concluída.
+`BibliotecaInicial` persiste o estado em arquivo com serialização Java. O construtor
+padrão usa `target/biblioteca-estado.dat` e `BibliotecaInicial(Path)` permite testes
+isolados. Arquivo ausente, conteúdo inválido ou falha de escrita lançam
+`PersistenciaException`. O subtipo `JogoDeTabuleiro` é preservado.
 
 ---
 
@@ -1016,7 +1014,7 @@ Essa operação faz parte das funcionalidades previstas para evolução do siste
 
 # 29. Funcionalidades atuais
 
-Atualmente estão implementadas as operações principais de acervo e usuários.
+A Entrega 2 cobre acervo, usuários, circulação e persistência.
 
 ### Acervo
 
@@ -1026,35 +1024,40 @@ Atualmente estão implementadas as operações principais de acervo e usuários.
 - busca por trecho do título;
 - busca por categoria;
 - adição de exemplar;
-- listagem de exemplares.
+- listagem de exemplares;
+- baixa de exemplar (`StatusExemplar.INDISPONIVEL`).
 
 ### Usuários
 
 - cadastro;
 - consulta;
 - listagem;
-- desativação;
-- reativação.
+- desativação bloqueada quando há empréstimo em aberto;
+- reativação;
+- contagem real de empréstimos ativos.
+
+### Circulação
+
+- empréstimo com prazo de 14 dias e limite de 3;
+- devolução;
+- listagem de empréstimos e de atrasos;
+- fila FIFO de reservas, cancelamento e prioridade no empréstimo.
+
+### Persistência
+
+- `salvar` e `carregar`, inclusive o subtipo `JogoDeTabuleiro`.
 
 ### Extensão
 
-- representação de jogos de tabuleiro;
+- representação de jogos de tabuleiro como subtipo de `Item`;
 - validação da faixa mínima e máxima de jogadores.
 
 ---
 
 # 30. Funcionalidades em evolução
 
-Algumas funcionalidades fazem parte das próximas etapas do projeto:
+A Entrega 3 ainda cobre:
 
-- baixa de exemplar;
-- empréstimos;
-- devoluções;
-- controle do limite de empréstimos;
-- reservas;
-- cancelamento de reservas;
-- listagem de atrasos;
-- persistência;
 - importação em lote;
 - relatórios;
 - estatísticas do acervo.
@@ -1190,6 +1193,6 @@ mvn javadoc:javadoc
 
 O projeto encontra-se em desenvolvimento incremental.
 
-O núcleo de gerenciamento de acervo e usuários já possui implementação funcional, enquanto os módulos de empréstimos, reservas, relatórios e persistência representam as próximas etapas de evolução.
+O núcleo de acervo, usuários, empréstimos, reservas e persistência já possui implementação funcional. Relatórios e importação em lote permanecem para a Entrega 3.
 
 A arquitetura baseada em contratos permite que essas implementações sejam substituídas ou ampliadas sem alterar a API principal utilizada pelos consumidores do sistema.
