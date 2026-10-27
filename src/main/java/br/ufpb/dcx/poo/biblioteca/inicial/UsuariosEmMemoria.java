@@ -15,7 +15,17 @@ import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.RecursoNaoEncontradoExceptio
 /** Implementação em memória que indexa usuários por sua matrícula imutável. */
 public class UsuariosEmMemoria implements UsuarioService {
 
+    @FunctionalInterface
+    interface ConsultaDeEmprestimos {
+        int naoDevolvidos(String matricula);
+    }
+
     private final Map<String, Usuario> usuariosPorMatricula = new HashMap<>();
+    private ConsultaDeEmprestimos consulta = matricula -> 0;
+
+    void vincularEmprestimos(ConsultaDeEmprestimos consulta) {
+        this.consulta = consulta;
+    }
 
     @Override
     public void cadastrarUsuario(String matricula, String nome) throws RecursoDuplicadoException {
@@ -43,7 +53,13 @@ public class UsuariosEmMemoria implements UsuarioService {
     @Override
     public void desativarUsuario(String matricula)
             throws RecursoNaoEncontradoException, OperacaoNaoPermitidaException {
-        localizarUsuario(matricula).desativar();
+        exigirTextoPreenchido(matricula, "matrícula");
+        Usuario usuario = localizarUsuario(matricula);
+        if (consulta.naoDevolvidos(matricula) > 0) {
+            throw new OperacaoNaoPermitidaException(
+                    "O usuário " + matricula + " ainda possui empréstimos em aberto.");
+        }
+        usuario.desativar();
     }
 
     @Override
@@ -51,7 +67,7 @@ public class UsuariosEmMemoria implements UsuarioService {
         localizarUsuario(matricula).reativar();
     }
 
-    private Usuario localizarUsuario(String matricula) throws RecursoNaoEncontradoException {
+    Usuario localizarUsuario(String matricula) throws RecursoNaoEncontradoException {
         Usuario usuario = usuariosPorMatricula.get(matricula);
         if (usuario == null) {
             throw new RecursoNaoEncontradoException("Usuário não encontrado: " + matricula);
@@ -60,7 +76,8 @@ public class UsuariosEmMemoria implements UsuarioService {
     }
 
     private UsuarioView paraView(Usuario usuario) {
-        return new UsuarioView(usuario.matricula(), usuario.nome(), usuario.ativo(), 0);
+        return new UsuarioView(usuario.matricula(), usuario.nome(), usuario.ativo(),
+                consulta.naoDevolvidos(usuario.matricula()));
     }
 
     private static void exigirTextoPreenchido(String valor, String campo) {

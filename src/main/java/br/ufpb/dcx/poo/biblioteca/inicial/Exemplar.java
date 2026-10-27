@@ -22,4 +22,12 @@ final class Exemplar {
     void baixar() {
         status = StatusExemplar.INDISPONIVEL;
     }
+
+    void marcarEmprestado() {
+        status = StatusExemplar.EMPRESTADO;
+    }
+
+    void disponibilizar() {
+        status = StatusExemplar.DISPONIVEL;
+    }
 }

@@ -94,16 +94,21 @@ public class AcervoEmMemoria implements AcervoService {
     public void baixarExemplar(String tombo)
             throws RecursoNaoEncontradoException, OperacaoNaoPermitidaException {
         exigirTextoPreenchido(tombo, "tombo");
-        Exemplar exemplar = exemplaresPorTombo.get(tombo);
-        if (exemplar == null) {
-            throw new RecursoNaoEncontradoException("Exemplar não encontrado: " + tombo);
-        }
+        Exemplar exemplar = localizarExemplar(tombo);
         if (exemplar.status() == StatusExemplar.EMPRESTADO
                 || exemplar.status() == StatusExemplar.INDISPONIVEL) {
             throw new OperacaoNaoPermitidaException(
                     "O exemplar " + tombo + " não pode ser baixado no status " + exemplar.status() + ".");
         }
         exemplar.baixar();
+    }
+
+    Exemplar localizarExemplar(String tombo) throws RecursoNaoEncontradoException {
+        Exemplar exemplar = exemplaresPorTombo.get(tombo);
+        if (exemplar == null) {
+            throw new RecursoNaoEncontradoException("Exemplar não encontrado: " + tombo);
+        }
+        return exemplar;
     }
 
     private Item localizarItem(String codigo) throws RecursoNaoEncontradoException {

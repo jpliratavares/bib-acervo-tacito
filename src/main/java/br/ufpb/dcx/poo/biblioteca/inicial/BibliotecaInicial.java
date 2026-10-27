@@ -17,8 +17,13 @@ public class BibliotecaInicial implements Biblioteca {
 
     private final AcervoEmMemoria acervo = new AcervoEmMemoria();
     private final UsuariosEmMemoria usuarios = new UsuariosEmMemoria();
-    private final EmprestimosNaoImplementados emprestimos = new EmprestimosNaoImplementados();
+    private final EmprestimosEmMemoria emprestimos;
     private final RelatoriosNaoImplementados relatorios = new RelatoriosNaoImplementados();
+
+    public BibliotecaInicial() {
+        emprestimos = new EmprestimosEmMemoria(acervo, usuarios);
+        usuarios.vincularEmprestimos(emprestimos::emprestimosNaoDevolvidos);
+    }
 
     @Override
     public AcervoService acervo() { return acervo; }
