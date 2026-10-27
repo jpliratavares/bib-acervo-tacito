@@ -165,4 +165,28 @@ class AcervoTest {
     void buscarPorTituloSemResultado() {
         assertEquals(List.of(), biblioteca.acervo().buscarPorTitulo("inexistente"));
     }
+
+    @Test
+    @DisplayName("baixa tira o exemplar de circulação e o mantém no total do item")
+    void baixarExemplarDisponivel() throws BibliotecaException {
+        biblioteca.acervo().cadastrarItem("L1", "Java Efetivo", "Bloch", "livro", 2019);
+        biblioteca.acervo().adicionarExemplar("L1", "T-001");
+        biblioteca.acervo().adicionarExemplar("L1", "T-002");
+
+        biblioteca.acervo().baixarExemplar("T-001");
+
+        ItemView item = biblioteca.acervo().buscarItem("L1");
+        assertEquals(2, item.totalDeExemplares());
+        assertEquals(1, item.exemplaresDisponiveis());
+        assertEquals(StatusExemplar.INDISPONIVEL, statusDoTombo("L1", "T-001"));
+        assertEquals(StatusExemplar.DISPONIVEL, statusDoTombo("L1", "T-002"));
+    }
+
+    private StatusExemplar statusDoTombo(String codigoDoItem, String tombo) throws BibliotecaException {
+        return biblioteca.acervo().listarExemplares(codigoDoItem).stream()
+                .filter(exemplar -> exemplar.tombo().equals(tombo))
+                .findFirst()
+                .orElseThrow()
+                .status();
+    }
 }
