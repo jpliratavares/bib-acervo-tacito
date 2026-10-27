@@ -17,4 +17,9 @@ final class Exemplar {
     String tombo() { return tombo; }
     String codigoDoItem() { return codigoDoItem; }
     StatusExemplar status() { return status; }
+
+    /** Baixa retira o exemplar de circulação. O contrato congelado representa isso com INDISPONIVEL. */
+    void baixar() {
+        status = StatusExemplar.INDISPONIVEL;
+    }
 }
