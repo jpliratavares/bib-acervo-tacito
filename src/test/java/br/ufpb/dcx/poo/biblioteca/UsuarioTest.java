@@ -1,9 +1,11 @@
 package br.ufpb.dcx.poo.biblioteca;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.time.LocalDate;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,6 +15,7 @@ import br.ufpb.dcx.poo.biblioteca.contrato.Biblioteca;
 import br.ufpb.dcx.poo.biblioteca.contrato.UsuarioView;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.BibliotecaException;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.DadosInvalidosException;
+import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.OperacaoNaoPermitidaException;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.RecursoDuplicadoException;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.RecursoNaoEncontradoException;
 
@@ -84,5 +87,53 @@ class UsuarioTest {
         biblioteca.usuarios().reativarUsuario("2026001");
 
         assertTrue(biblioteca.usuarios().buscarUsuario("2026001").ativo());
+    }
+
+    @Test
+    @DisplayName("matrícula nula ou em branco é rejeitada ao desativar")
+    void desativarMatriculaInvalida() {
+        assertThrows(DadosInvalidosException.class, () -> biblioteca.usuarios().desativarUsuario(null));
+        assertThrows(DadosInvalidosException.class, () -> biblioteca.usuarios().desativarUsuario("  "));
+    }
+
+    @Test
+    @DisplayName("desativar matrícula inexistente lança RecursoNaoEncontradoException")
+    void desativarInexistente() {
+        assertThrows(RecursoNaoEncontradoException.class,
+                () -> biblioteca.usuarios().desativarUsuario("0000"));
+    }
+
+    @Test
+    @DisplayName("usuário com empréstimo em aberto não pode ser desativado")
+    void naoDesativaComEmprestimoAtivo() throws BibliotecaException {
+        prepararCirculacao();
+        biblioteca.emprestimos().emprestar("T-001", "2026001", LocalDate.of(2026, 10, 1));
+
+        assertEquals(1, biblioteca.usuarios().buscarUsuario("2026001").emprestimosAtivos());
+        assertThrows(OperacaoNaoPermitidaException.class,
+                () -> biblioteca.usuarios().desativarUsuario("2026001"));
+        assertTrue(biblioteca.usuarios().buscarUsuario("2026001").ativo());
+    }
+
+    @Test
+    @DisplayName("empréstimo atrasado continua ativo e só libera a desativação depois da devolução")
+    void devolveEEntaoDesativa() throws BibliotecaException {
+        prepararCirculacao();
+        biblioteca.emprestimos().emprestar("T-001", "2026001", LocalDate.of(2026, 1, 1));
+
+        assertThrows(OperacaoNaoPermitidaException.class,
+                () -> biblioteca.usuarios().desativarUsuario("2026001"));
+
+        biblioteca.emprestimos().devolver("T-001", LocalDate.of(2026, 3, 1));
+
+        assertEquals(0, biblioteca.usuarios().buscarUsuario("2026001").emprestimosAtivos());
+        biblioteca.usuarios().desativarUsuario("2026001");
+        assertFalse(biblioteca.usuarios().buscarUsuario("2026001").ativo());
+    }
+
+    private void prepararCirculacao() throws BibliotecaException {
+        biblioteca.acervo().cadastrarItem("L1", "Java Efetivo", "Bloch", "livro", 2019);
+        biblioteca.acervo().adicionarExemplar("L1", "T-001");
+        biblioteca.usuarios().cadastrarUsuario("2026001", "Ana Souza");
     }
 }
