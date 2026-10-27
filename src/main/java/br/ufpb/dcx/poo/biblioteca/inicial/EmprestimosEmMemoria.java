@@ -2,7 +2,9 @@ package br.ufpb.dcx.poo.biblioteca.inicial;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import br.ufpb.dcx.poo.biblioteca.contrato.EmprestimoService;
 import br.ufpb.dcx.poo.biblioteca.contrato.EmprestimoView;
@@ -16,13 +18,16 @@ import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.OperacaoNaoPermitidaExceptio
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.RecursoNaoEncontradoException;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.UsuarioInativoException;
 
-/** Empréstimos, devoluções e atrasos em memória. A fila de reservas entra no ciclo seguinte. */
+/** Empréstimos, devoluções, atrasos e fila de reservas em memória. */
 public class EmprestimosEmMemoria implements EmprestimoService {
 
     private final AcervoEmMemoria acervo;
     private final UsuariosEmMemoria usuarios;
     private final List<Emprestimo> emprestimos = new ArrayList<>();
+    private final Map<String, List<Reserva>> filasPorItem = new HashMap<>();
+    private final Map<String, Reserva> reservasPorId = new HashMap<>();
     private long proximoId = 1;
+    private long proximoIdReserva = 1;
 
     EmprestimosEmMemoria(AcervoEmMemoria acervo, UsuariosEmMemoria usuarios) {
         this.acervo = acervo;
@@ -45,11 +50,13 @@ public class EmprestimosEmMemoria implements EmprestimoService {
         if (exemplar.status() != StatusExemplar.DISPONIVEL) {
             throw new ExemplarIndisponivelException("O exemplar " + tombo + " não está disponível.");
         }
+        garantirVezNaFila(exemplar.codigoDoItem(), matricula);
         if (emprestimosNaoDevolvidos(matricula) >= LIMITE_DE_EMPRESTIMOS) {
             throw new LimiteDeEmprestimosExcedidoException(
                     "O usuário " + matricula + " já atingiu o limite de " + LIMITE_DE_EMPRESTIMOS
                             + " empréstimos.");
         }
+        consumirReserva(exemplar.codigoDoItem(), matricula);
 
         String id = "E-" + proximoId++;
         emprestimos.add(new Emprestimo(id, tombo, matricula, data, data.plusDays(PRAZO_EM_DIAS)));
@@ -101,23 +108,150 @@ public class EmprestimosEmMemoria implements EmprestimoService {
     @Override
     public String reservar(String codigoDoItem, String matricula, LocalDate data)
             throws RecursoNaoEncontradoException, OperacaoNaoPermitidaException {
-        throw new UnsupportedOperationException("Entrega 2: implementar reservar");
+        exigirTexto(codigoDoItem, "O código do item é obrigatório.");
+        exigirTexto(matricula, "A matrícula é obrigatória.");
+        exigirData(data);
+
+        Item item = acervo.localizarItem(codigoDoItem);
+        Usuario usuario = usuarios.localizarUsuario(matricula);
+        if (!usuario.ativo()) {
+            throw new OperacaoNaoPermitidaException("O usuário " + matricula + " está inativo.");
+        }
+        List<Reserva> fila = filasPorItem.getOrDefault(codigoDoItem, List.of());
+        if (contar(item, StatusExemplar.DISPONIVEL) > fila.size()) {
+            throw new OperacaoNaoPermitidaException(
+                    "Há exemplar disponível para empréstimo imediato do item " + codigoDoItem + ".");
+        }
+        if (contarCirculaveis(item) == 0) {
+            throw new OperacaoNaoPermitidaException(
+                    "O item " + codigoDoItem + " não possui exemplar em circulação.");
+        }
+        if (indiceNaFila(fila, matricula) >= 0) {
+            throw new OperacaoNaoPermitidaException(
+                    "O usuário " + matricula + " já possui reserva ativa para o item " + codigoDoItem + ".");
+        }
+        if (possuiEmprestimoAbertoDoItem(matricula, codigoDoItem)) {
+            throw new OperacaoNaoPermitidaException(
+                    "O usuário " + matricula + " já está com um exemplar do item " + codigoDoItem
+                            + " emprestado.");
+        }
+
+        String id = "R-" + proximoIdReserva++;
+        Reserva reserva = new Reserva(id, codigoDoItem, matricula, data);
+        filasPorItem.computeIfAbsent(codigoDoItem, chave -> new ArrayList<>()).add(reserva);
+        reservasPorId.put(id, reserva);
+        return id;
     }
 
     @Override
     public List<ReservaView> listarReservas(String codigoDoItem) throws RecursoNaoEncontradoException {
-        throw new UnsupportedOperationException("Entrega 2: implementar listarReservas");
+        exigirTexto(codigoDoItem, "O código do item é obrigatório.");
+        acervo.localizarItem(codigoDoItem);
+        List<Reserva> fila = filasPorItem.getOrDefault(codigoDoItem, List.of());
+        List<ReservaView> views = new ArrayList<>();
+        for (int indice = 0; indice < fila.size(); indice++) {
+            Reserva reserva = fila.get(indice);
+            views.add(new ReservaView(reserva.id(), reserva.codigoDoItem(), reserva.matricula(),
+                    reserva.dataDaReserva(), indice + 1));
+        }
+        return List.copyOf(views);
     }
 
     @Override
     public void cancelarReserva(String idDaReserva) throws RecursoNaoEncontradoException {
-        throw new UnsupportedOperationException("Entrega 2: implementar cancelarReserva");
+        exigirTexto(idDaReserva, "O identificador da reserva é obrigatório.");
+        Reserva reserva = reservasPorId.remove(idDaReserva);
+        if (reserva == null) {
+            throw new RecursoNaoEncontradoException("Reserva não encontrada: " + idDaReserva);
+        }
+        List<Reserva> fila = filasPorItem.get(reserva.codigoDoItem());
+        if (fila != null) {
+            fila.remove(reserva);
+        }
     }
 
     int emprestimosNaoDevolvidos(String matricula) {
         int total = 0;
         for (Emprestimo emprestimo : emprestimos) {
             if (emprestimo.matricula().equals(matricula) && emprestimo.emAberto()) {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    private void garantirVezNaFila(String codigoDoItem, String matricula)
+            throws RecursoNaoEncontradoException, ExemplarIndisponivelException {
+        List<Reserva> fila = filasPorItem.getOrDefault(codigoDoItem, List.of());
+        if (fila.isEmpty()) {
+            return;
+        }
+        int disponiveis = contar(acervo.localizarItem(codigoDoItem), StatusExemplar.DISPONIVEL);
+        if (disponiveis <= pessoasNaFrente(fila, matricula)) {
+            throw new ExemplarIndisponivelException(
+                    "Os exemplares disponíveis do item " + codigoDoItem
+                            + " estão comprometidos com a fila de reserva.");
+        }
+    }
+
+    private void consumirReserva(String codigoDoItem, String matricula) {
+        List<Reserva> fila = filasPorItem.get(codigoDoItem);
+        if (fila == null) {
+            return;
+        }
+        Reserva encontrada = null;
+        for (Reserva reserva : fila) {
+            if (reserva.matricula().equals(matricula)) {
+                encontrada = reserva;
+                break;
+            }
+        }
+        if (encontrada == null) {
+            return;
+        }
+        fila.remove(encontrada);
+        reservasPorId.remove(encontrada.id());
+    }
+
+    private boolean possuiEmprestimoAbertoDoItem(String matricula, String codigoDoItem)
+            throws RecursoNaoEncontradoException {
+        for (Emprestimo emprestimo : emprestimos) {
+            if (emprestimo.emAberto() && emprestimo.matricula().equals(matricula)
+                    && acervo.localizarExemplar(emprestimo.tombo()).codigoDoItem().equals(codigoDoItem)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int pessoasNaFrente(List<Reserva> fila, String matricula) {
+        int indice = indiceNaFila(fila, matricula);
+        return indice >= 0 ? indice : fila.size();
+    }
+
+    private static int indiceNaFila(List<Reserva> fila, String matricula) {
+        for (int indice = 0; indice < fila.size(); indice++) {
+            if (fila.get(indice).matricula().equals(matricula)) {
+                return indice;
+            }
+        }
+        return -1;
+    }
+
+    private static int contar(Item item, StatusExemplar status) {
+        int total = 0;
+        for (Exemplar exemplar : item.exemplares()) {
+            if (exemplar.status() == status) {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    private static int contarCirculaveis(Item item) {
+        int total = 0;
+        for (Exemplar exemplar : item.exemplares()) {
+            if (exemplar.status() != StatusExemplar.INDISPONIVEL) {
                 total++;
             }
         }

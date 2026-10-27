@@ -111,7 +111,7 @@ public class AcervoEmMemoria implements AcervoService {
         return exemplar;
     }
 
-    private Item localizarItem(String codigo) throws RecursoNaoEncontradoException {
+    Item localizarItem(String codigo) throws RecursoNaoEncontradoException {
         Item item = itensPorCodigo.get(codigo);
         if (item == null) {
             throw new RecursoNaoEncontradoException("Item não encontrado: " + codigo);
