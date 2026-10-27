@@ -1,30 +1,37 @@
 package br.ufpb.dcx.poo.biblioteca.inicial;
 
+import java.io.Serializable;
+
 import br.ufpb.dcx.poo.biblioteca.contrato.StatusExemplar;
 
-/**
- * A cópia física de um item. O que se empresta é o exemplar, não o item.
- *
- * <p>Ponto de partida, como {@link Item}.</p>
- */
-public class Exemplar {
+/** Cópia física identificada de forma imutável pelo tombo. */
+final class Exemplar implements Serializable {
 
-    private String tombo;
-    private Item item;
-    private StatusExemplar status;
+    private static final long serialVersionUID = 1L;
 
-    public Exemplar(String tombo, Item item) {
+    private final String tombo;
+    private final String codigoDoItem;
+    private StatusExemplar status = StatusExemplar.DISPONIVEL;
+
+    Exemplar(String tombo, String codigoDoItem) {
         this.tombo = tombo;
-        this.item = item;
-        this.status = StatusExemplar.DISPONIVEL;
+        this.codigoDoItem = codigoDoItem;
     }
 
-    public String getTombo() { return tombo; }
-    public void setTombo(String tombo) { this.tombo = tombo; }
+    String tombo() { return tombo; }
+    String codigoDoItem() { return codigoDoItem; }
+    StatusExemplar status() { return status; }
 
-    public Item getItem() { return item; }
-    public void setItem(Item item) { this.item = item; }
+    /** Baixa retira o exemplar de circulação. O contrato congelado representa isso com INDISPONIVEL. */
+    void baixar() {
+        status = StatusExemplar.INDISPONIVEL;
+    }
 
-    public StatusExemplar getStatus() { return status; }
-    public void setStatus(StatusExemplar status) { this.status = status; }
+    void marcarEmprestado() {
+        status = StatusExemplar.EMPRESTADO;
+    }
+
+    void disponibilizar() {
+        status = StatusExemplar.DISPONIVEL;
+    }
 }

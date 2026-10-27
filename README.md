@@ -15,9 +15,9 @@ mvn -B verify      # compila e roda os testes
 mvn -B test        # só os testes
 ```
 
-Se tudo estiver certo, você verá `Tests run: 19, Failures: 0, Errors: 0, Skipped: 5`.
+Na Entrega 2 a suíte local termina com `Tests run: 57, Failures: 0, Errors: 0, Skipped: 0`.
 
-Os 5 pulados são os testes marcados com `@Disabled`: eles cobrem o que você ainda vai implementar. Remova a anotação de cada um quando implementar o método correspondente.
+Os relatórios e a importação em lote continuam para a Entrega 3 e ainda lançam `UnsupportedOperationException`.
 
 ---
 
@@ -37,14 +37,19 @@ src/main/java/br/ufpb/dcx/poo/biblioteca/
 │
 ├── Fabrica.java       ← nome e assinatura congelados; o corpo é seu
 │
-└── inicial/           ← ponto de partida; altere, mova, renomeie ou apague
+└── inicial/           ← implementação da equipe
     ├── Item.java
+    ├── JogoDeTabuleiro.java       subtipo de Item, preservado na persistência
     ├── Exemplar.java
+    ├── Usuario.java
+    ├── Emprestimo.java
+    ├── Reserva.java
+    ├── EstadoBiblioteca.java      fotografia serializada do estado
     ├── AcervoEmMemoria.java
     ├── UsuariosEmMemoria.java
-    ├── EmprestimosNaoImplementados.java
+    ├── EmprestimosEmMemoria.java
     ├── RelatoriosNaoImplementados.java
-    └── BibliotecaInicial.java
+    └── BibliotecaInicial.java     agrega os serviços e persiste o estado
 
 src/test/java/…       ← seus testes; comece pelos que já estão aqui
 dados/                ← arquivos de exemplo
@@ -67,21 +72,63 @@ Fora isso, **tudo é seu**. O pacote `inicial` não é modelo: é matéria-prima
 
 | Serviço | Situação |
 |---|---|
-| `AcervoService` | `cadastrarItem`, `buscarItem` e `listarItens` funcionam para os casos simples. O resto é seu. |
-| `UsuarioService` | `cadastrarUsuario`, `buscarUsuario` e `listarUsuarios` funcionam. `desativar`/`reativar` são da Entrega 2. |
-| `EmprestimoService` | Esqueleto. Entrega 2. |
+| `AcervoService` | Cadastro, busca, exemplares e baixa. A baixa marca o exemplar como `StatusExemplar.INDISPONIVEL`: o contrato congelado não tem o valor `BAIXADO`. O exemplar baixado continua em `totalDeExemplares` e sai de `exemplaresDisponiveis`. |
+| `UsuarioService` | Cadastro, busca, ativação e bloqueio da desativação quando existe empréstimo em aberto. `emprestimosAtivos` conta empréstimos ainda não devolvidos. |
+| `EmprestimoService` | Empréstimo, devolução, atrasos e fila FIFO de reservas, com limite de 3 e prazo de 14 dias. |
 | `RelatorioService` | Esqueleto. Entrega 3. |
-| `Biblioteca.salvar/carregar` | Esqueleto. Entrega 2. |
+| `Biblioteca.salvar/carregar` | Serialização de itens (inclusive `JogoDeTabuleiro`), exemplares, usuários, empréstimos e reservas. O construtor padrão usa `target/biblioteca-estado.dat`; testes isolados recebem um `Path`. |
 
-Métodos ainda não implementados lançam `UnsupportedOperationException` com a indicação da entrega. Cada mensagem diz o que fazer.
+`RelatorioService` ainda lança `UnsupportedOperationException`. Falha de leitura, arquivo ausente ou conteúdo inválido em `salvar`/`carregar` lança `PersistenciaException`.
+
+## Como executar
+
+Pré-requisitos: JDK 21 e Maven.
+
+```bash
+mvn -B verify       # compila, executa os testes e valida o projeto
+mvn -B test         # executa somente a suíte JUnit 5
+```
+
+O projeto usa JUnit 5 e o workflow em `.github/workflows/build.yml` executa
+`mvn -B verify` em cada push e Pull Request.
+
+## Decisões de modelagem e coleções
+
+O domínio protege as identidades de `Item`, `Exemplar` e `Usuario`: código, tombo e
+matrícula são definidos na construção e não possuem *setters*. As operações de
+alteração passam pelos serviços, onde as regras de negócio são verificadas.
+
+| Estrutura | Uso | Justificativa |
+|---|---|---|
+| `Map<String, Item>` | Itens indexados pelo código. | Busca e verificação de duplicidade por código são diretas e usam igualdade de conteúdo de `String`. |
+| `Map<String, Exemplar>` | Exemplares indexados pelo tombo. | O tombo é globalmente único, inclusive entre itens diferentes. |
+| `Map<String, Usuario>` | Usuários indexados pela matrícula. | Evita listas paralelas e mantém nome, matrícula e estado ativo no mesmo objeto. |
+| `List<Exemplar>` | Exemplares pertencentes a um item. | Preserva a composição item–exemplar; o acesso externo é uma cópia imutável. |
+| `List<Emprestimo>` | Histórico de empréstimos na ordem de realização. | A devolução preenche `dataDaDevolucao` sem apagar o registro. Em aberto conta como ativo, mesmo atrasado. |
+| `Map<String, List<Reserva>>` | Fila FIFO de reservas por item. | A posição é o índice mais um. Cancelar ou atender uma reserva reordena o restante. |
+| `Map<String, Reserva>` | Reservas ativas pelo identificador. | Permite cancelar sem varrer todas as filas. |
+
+As consultas devolvem `ItemView`, `ExemplarView` e `UsuarioView`, não entidades
+internas. Isso evita vazamento de estado do domínio.
+
+## Relato do defeito oculto
+
+O método de localização do código comparava textos com `==`. Em Java, `==` compara a
+identidade do objeto, e não o conteúdo; portanto, dois objetos `String` com o mesmo
+texto poderiam não ser reconhecidos como o mesmo código. O teste de regressão foi
+registrado primeiro no commit `cceeda0` e cria duas instâncias distintas de `String`
+com o valor `"L1"`. A correção substitui a comparação por uma busca no `Map`, cuja
+chave usa igualdade de conteúdo. Esse fluxo mantém o defeito coberto pela suíte.
 
 ---
 
+## Persistência
+
+`BibliotecaInicial` grava e relê uma fotografia `EstadoBiblioteca` com serialização Java. O arquivo padrão é `target/biblioteca-estado.dat`. `new BibliotecaInicial(Path)` isola cada teste. Itens, exemplares e seus status, usuários e o flag `ativo`, o histórico de empréstimos e a ordem das filas de reserva voltam na nova instância. `JogoDeTabuleiro` estende `Item`, então o subtipo sobrevive ao `carregar()`.
+
 ## Um aviso honesto
 
-O código do pacote `inicial` **tem problemas**. Alguns são de design e você vai reconhecê-los conforme a disciplina avançar. Pelo menos um é um defeito de comportamento que os testes atuais **não** pegam: o sistema faz a coisa errada em uma situação que ninguém testou ainda.
-
-Isso é proposital. Encontrar esse tipo de defeito — reproduzir, escrever o teste que falha, corrigir, ver o teste passar — é uma das competências avaliadas. Não confie em suíte verde como prova de correção.
+O defeito de comparar códigos com `==` foi reproduzido, coberto e corrigido na Entrega 1. A Entrega 3 ainda não implementa relatórios nem importação em lote. Suíte verde continua sendo o piso da entrega, não a prova de que toda regra futura já está coberta.
 
 ---
 
@@ -91,7 +138,12 @@ Sua equipe escolhe um acervo próprio: jogos, filmes, quadrinhos, instrumentos, 
 
 ### Nossa extensão
 
-> Substitua esta seção: qual acervo, qual regra de negócio própria, o que ela muda no comportamento do sistema.
+O acervo da equipe é de **jogos de tabuleiro**. `JogoDeTabuleiro` estende `Item` e
+registra a faixa de participantes. A regra autoral é: o mínimo de jogadores deve ser
+pelo menos 1 e o máximo não pode ser menor que o mínimo. A classe valida a regra no
+construtor. `AcervoEmMemoria.cadastrarJogoDeTabuleiro` coloca esse subtipo no acervo, e
+a persistência o restaura como `JogoDeTabuleiro`, não como `Item` genérico. A extensão
+não altera o pacote `contrato`.
 
 ---
 
@@ -105,5 +157,5 @@ O uso é permitido como apoio, desde que declarado em [`DECLARACAO-DE-USO-DE-IA.
 
 | Nome | Matrícula | GitHub |
 |---|---|---|
-| | | |
-| | | |
+| Aquiles Francisco da Silva | 20250104421 | AquilesFrancisco |
+| João Pedro de Lira Tavares | 20250104501 | jpliratavares |

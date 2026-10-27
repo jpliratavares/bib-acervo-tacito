@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -79,6 +78,18 @@ class AcervoTest {
     }
 
     @Test
+    @DisplayName("busca encontra código com o mesmo conteúdo em outra instância de String")
+    void buscarPorCodigoComStringEquivalente() throws BibliotecaException {
+        String codigoCadastrado = new String("L1");
+        String codigoDaBusca = new String("L1");
+        biblioteca.acervo().cadastrarItem(codigoCadastrado, "Java Efetivo", "Bloch", "livro", 2019);
+
+        ItemView item = biblioteca.acervo().buscarItem(codigoDaBusca);
+
+        assertEquals("L1", item.codigo());
+    }
+
+    @Test
     @DisplayName("código em branco é entrada inválida, não regra de negócio")
     void codigoEmBranco() {
         assertThrows(DadosInvalidosException.class,
@@ -106,12 +117,7 @@ class AcervoTest {
         assertEquals(List.of(), biblioteca.acervo().listarItens());
     }
 
-    // ------------------------------------------------------------------
-    // A implementar na Entrega 1. Remova @Disabled ao implementar cada um.
-    // ------------------------------------------------------------------
-
     @Test
-    @Disabled("Entrega 1: implementar adicionarExemplar e listarExemplares")
     @DisplayName("exemplar adicionado entra como DISPONIVEL e conta no item")
     void adicionarExemplar() throws BibliotecaException {
         biblioteca.acervo().cadastrarItem("L1", "Java Efetivo", "Bloch", "livro", 2019);
@@ -127,7 +133,6 @@ class AcervoTest {
     }
 
     @Test
-    @Disabled("Entrega 1: implementar adicionarExemplar")
     @DisplayName("tombo é único no acervo inteiro, não apenas dentro do item")
     void tomboDuplicadoEntreItensDiferentes() throws BibliotecaException {
         biblioteca.acervo().cadastrarItem("L1", "Java Efetivo", "Bloch", "livro", 2019);
@@ -139,7 +144,6 @@ class AcervoTest {
     }
 
     @Test
-    @Disabled("Entrega 1: implementar adicionarExemplar")
     @DisplayName("não se adiciona exemplar a item que não existe")
     void exemplarDeItemInexistente() {
         assertThrows(RecursoNaoEncontradoException.class,
@@ -147,7 +151,6 @@ class AcervoTest {
     }
 
     @Test
-    @Disabled("Entrega 1: implementar buscarPorTitulo")
     @DisplayName("busca por título ignora maiúsculas e aceita trecho")
     void buscarPorTitulo() throws BibliotecaException {
         biblioteca.acervo().cadastrarItem("L1", "Java Efetivo", "Bloch", "livro", 2019);
@@ -158,9 +161,32 @@ class AcervoTest {
     }
 
     @Test
-    @Disabled("Entrega 1: implementar buscarPorTitulo")
     @DisplayName("busca sem resultado devolve lista vazia, não exceção")
     void buscarPorTituloSemResultado() {
         assertEquals(List.of(), biblioteca.acervo().buscarPorTitulo("inexistente"));
+    }
+
+    @Test
+    @DisplayName("baixa tira o exemplar de circulação e o mantém no total do item")
+    void baixarExemplarDisponivel() throws BibliotecaException {
+        biblioteca.acervo().cadastrarItem("L1", "Java Efetivo", "Bloch", "livro", 2019);
+        biblioteca.acervo().adicionarExemplar("L1", "T-001");
+        biblioteca.acervo().adicionarExemplar("L1", "T-002");
+
+        biblioteca.acervo().baixarExemplar("T-001");
+
+        ItemView item = biblioteca.acervo().buscarItem("L1");
+        assertEquals(2, item.totalDeExemplares());
+        assertEquals(1, item.exemplaresDisponiveis());
+        assertEquals(StatusExemplar.INDISPONIVEL, statusDoTombo("L1", "T-001"));
+        assertEquals(StatusExemplar.DISPONIVEL, statusDoTombo("L1", "T-002"));
+    }
+
+    private StatusExemplar statusDoTombo(String codigoDoItem, String tombo) throws BibliotecaException {
+        return biblioteca.acervo().listarExemplares(codigoDoItem).stream()
+                .filter(exemplar -> exemplar.tombo().equals(tombo))
+                .findFirst()
+                .orElseThrow()
+                .status();
     }
 }

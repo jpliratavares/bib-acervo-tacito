@@ -1,32 +1,110 @@
 @startuml
-' Modelo de domínio do sistema: Entrega 1.
-'
-' Este arquivo é o ponto de partida. Substitua pelo modelo da sua equipe.
-' O diagrama precisa corresponder ao código entregue.
-'
-' Para gerar a imagem: instale o plugin PlantUML no IntelliJ, ou use
-'   plantuml docs/modelo.puml
-' e versione a imagem gerada ao lado deste arquivo.
+title Modelo de domínio — Acervo de jogos de tabuleiro (Entrega 2)
 
 skinparam classAttributeIconSize 0
 hide empty members
 
 class Item {
-  - codigo : String
-  - titulo : String
+  - codigo : String {readOnly}
+  - titulo : String {readOnly}
+  - autoria : String {readOnly}
+  - categoria : String {readOnly}
+  - ano : int {readOnly}
+  - exemplares : List<Exemplar>
+  + adicionarExemplar(exemplar)
+  + exemplares() : List<Exemplar>
+}
+
+class JogoDeTabuleiro {
+  - jogadoresMinimos : int {readOnly}
+  - jogadoresMaximos : int {readOnly}
 }
 
 class Exemplar {
-  - tombo : String
+  - tombo : String {readOnly}
+  - codigoDoItem : String {readOnly}
+  - status : StatusExemplar
+  + baixar()
+  + marcarEmprestado()
+  + disponibilizar()
 }
 
-Item "1" *-- "0..*" Exemplar : possui
+class Usuario {
+  - matricula : String {readOnly}
+  - nome : String {readOnly}
+  - ativo : boolean
+}
 
-note bottom of Item
-  Ponto de partida, não modelo pronto.
-  Decidam: quais entidades existem,
-  quem guarda o quê, quais invariantes
-  cada objeto protege.
+class Emprestimo {
+  - id : String {readOnly}
+  - tombo : String {readOnly}
+  - matricula : String {readOnly}
+  - dataDoEmprestimo : LocalDate {readOnly}
+  - dataPrevistaDeDevolucao : LocalDate {readOnly}
+  - dataDaDevolucao : LocalDate
+}
+
+class Reserva {
+  - id : String {readOnly}
+  - codigoDoItem : String {readOnly}
+  - matricula : String {readOnly}
+  - dataDaReserva : LocalDate {readOnly}
+}
+
+class AcervoEmMemoria {
+  - itensPorCodigo : Map<String, Item>
+  - exemplaresPorTombo : Map<String, Exemplar>
+}
+
+class UsuariosEmMemoria {
+  - usuariosPorMatricula : Map<String, Usuario>
+}
+
+class EmprestimosEmMemoria {
+  - emprestimos : List<Emprestimo>
+  - filasPorItem : Map<String, List<Reserva>>
+  - reservasPorId : Map<String, Reserva>
+}
+
+class BibliotecaInicial {
+  - arquivoPersistencia : Path
+  + salvar()
+  + carregar()
+}
+
+class EstadoBiblioteca {
+  - itens : List<Item>
+  - usuarios : List<Usuario>
+  - emprestimos : List<Emprestimo>
+  - reservas : List<Reserva>
+}
+
+Item <|-- JogoDeTabuleiro
+Item "1" *-- "0..*" Exemplar : possui
+AcervoEmMemoria o-- Item : indexa por código
+AcervoEmMemoria o-- Exemplar : indexa por tombo
+UsuariosEmMemoria o-- Usuario : indexa por matrícula
+EmprestimosEmMemoria o-- Emprestimo : histórico
+EmprestimosEmMemoria o-- Reserva : fila por item
+BibliotecaInicial *-- AcervoEmMemoria
+BibliotecaInicial *-- UsuariosEmMemoria
+BibliotecaInicial *-- EmprestimosEmMemoria
+BibliotecaInicial ..> EstadoBiblioteca : persiste
+
+note bottom of JogoDeTabuleiro
+Regra autoral:
+1 <= jogadoresMinimos <= jogadoresMaximos
+A serialização preserva este subtipo.
 end note
 
+note bottom of Exemplar
+Baixa marca INDISPONIVEL,
+o estado do contrato para fora de circulação.
+O exemplar continua no total e sai dos disponíveis.
+end note
+
+note bottom of EmprestimosEmMemoria
+Limite de 3 empréstimos e prazo de 14 dias.
+A fila de reserva é FIFO por item.
+end note
 @enduml
