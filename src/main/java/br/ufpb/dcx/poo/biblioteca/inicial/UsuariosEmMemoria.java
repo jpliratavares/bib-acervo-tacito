@@ -1,5 +1,6 @@
 package br.ufpb.dcx.poo.biblioteca.inicial;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -65,6 +66,17 @@ public class UsuariosEmMemoria implements UsuarioService {
     @Override
     public void reativarUsuario(String matricula) throws RecursoNaoEncontradoException {
         localizarUsuario(matricula).reativar();
+    }
+
+    List<Usuario> copiarUsuarios() {
+        return new ArrayList<>(usuariosPorMatricula.values());
+    }
+
+    void restaurar(List<Usuario> usuarios) {
+        usuariosPorMatricula.clear();
+        for (Usuario usuario : usuarios) {
+            usuariosPorMatricula.put(usuario.matricula(), usuario);
+        }
     }
 
     Usuario localizarUsuario(String matricula) throws RecursoNaoEncontradoException {

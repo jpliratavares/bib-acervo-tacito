@@ -170,6 +170,40 @@ public class EmprestimosEmMemoria implements EmprestimoService {
         }
     }
 
+    List<Emprestimo> copiarEmprestimos() {
+        return new ArrayList<>(emprestimos);
+    }
+
+    List<Reserva> copiarReservas() {
+        List<Reserva> reservas = new ArrayList<>();
+        for (List<Reserva> fila : filasPorItem.values()) {
+            reservas.addAll(fila);
+        }
+        return reservas;
+    }
+
+    long proximoIdEmprestimo() {
+        return proximoId;
+    }
+
+    long proximoIdReserva() {
+        return proximoIdReserva;
+    }
+
+    void restaurar(List<Emprestimo> emprestimosRestaurados, List<Reserva> reservas,
+                   long proximoIdEmprestimo, long proximoIdReserva) {
+        emprestimos.clear();
+        emprestimos.addAll(emprestimosRestaurados);
+        filasPorItem.clear();
+        reservasPorId.clear();
+        for (Reserva reserva : reservas) {
+            filasPorItem.computeIfAbsent(reserva.codigoDoItem(), chave -> new ArrayList<>()).add(reserva);
+            reservasPorId.put(reserva.id(), reserva);
+        }
+        this.proximoId = proximoIdEmprestimo;
+        this.proximoIdReserva = proximoIdReserva;
+    }
+
     int emprestimosNaoDevolvidos(String matricula) {
         int total = 0;
         for (Emprestimo emprestimo : emprestimos) {

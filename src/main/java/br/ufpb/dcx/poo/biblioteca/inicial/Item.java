@@ -1,10 +1,13 @@
 package br.ufpb.dcx.poo.biblioteca.inicial;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 /** Entidade do acervo cuja identidade é o código imutável. */
-final class Item {
+class Item implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private final String codigo;
     private final String titulo;

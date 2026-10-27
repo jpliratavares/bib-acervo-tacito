@@ -1,9 +1,12 @@
 package br.ufpb.dcx.poo.biblioteca.inicial;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 
 /** Empréstimo de um exemplar para um usuário, aberto enquanto não houver devolução. */
-final class Emprestimo {
+final class Emprestimo implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private final String id;
     private final String tombo;

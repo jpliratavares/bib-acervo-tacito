@@ -1,7 +1,11 @@
 package br.ufpb.dcx.poo.biblioteca.inicial;
 
-/** Usuário com matrícula imutável e estado preparado para as próximas entregas. */
-final class Usuario {
+import java.io.Serializable;
+
+/** Usuário com matrícula imutável e estado de ativação. */
+final class Usuario implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private final String matricula;
     private final String nome;

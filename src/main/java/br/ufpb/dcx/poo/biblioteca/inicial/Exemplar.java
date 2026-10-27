@@ -1,9 +1,13 @@
 package br.ufpb.dcx.poo.biblioteca.inicial;
 
+import java.io.Serializable;
+
 import br.ufpb.dcx.poo.biblioteca.contrato.StatusExemplar;
 
 /** Cópia física identificada de forma imutável pelo tombo. */
-final class Exemplar {
+final class Exemplar implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private final String tombo;
     private final String codigoDoItem;

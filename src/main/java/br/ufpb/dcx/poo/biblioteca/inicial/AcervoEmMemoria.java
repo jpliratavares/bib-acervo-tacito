@@ -1,5 +1,6 @@
 package br.ufpb.dcx.poo.biblioteca.inicial;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +31,26 @@ public class AcervoEmMemoria implements AcervoService {
             throw new RecursoDuplicadoException("Já existe item com o código " + codigo);
         }
         itensPorCodigo.put(codigo, new Item(codigo, titulo, autoria, categoria, ano));
+    }
+
+    public void cadastrarJogoDeTabuleiro(String codigo, String titulo, String autoria,
+                                         String categoria, int ano, int jogadoresMinimos,
+                                         int jogadoresMaximos) throws RecursoDuplicadoException {
+        exigirTextoPreenchido(codigo, "codigo");
+        exigirTextoPreenchido(titulo, "titulo");
+        if (itensPorCodigo.containsKey(codigo)) {
+            throw new RecursoDuplicadoException("Já existe item com o código " + codigo);
+        }
+        itensPorCodigo.put(codigo, new JogoDeTabuleiro(
+                codigo, titulo, autoria, categoria, ano, jogadoresMinimos, jogadoresMaximos));
+    }
+
+    public JogoDeTabuleiro buscarJogo(String codigo) throws RecursoNaoEncontradoException {
+        Item item = localizarItem(codigo);
+        if (item instanceof JogoDeTabuleiro jogo) {
+            return jogo;
+        }
+        throw new RecursoNaoEncontradoException("Jogo de tabuleiro não encontrado: " + codigo);
     }
 
     @Override
@@ -101,6 +122,21 @@ public class AcervoEmMemoria implements AcervoService {
                     "O exemplar " + tombo + " não pode ser baixado no status " + exemplar.status() + ".");
         }
         exemplar.baixar();
+    }
+
+    List<Item> copiarItens() {
+        return new ArrayList<>(itensPorCodigo.values());
+    }
+
+    void restaurar(List<Item> itens) {
+        itensPorCodigo.clear();
+        exemplaresPorTombo.clear();
+        for (Item item : itens) {
+            itensPorCodigo.put(item.codigo(), item);
+            for (Exemplar exemplar : item.exemplares()) {
+                exemplaresPorTombo.put(exemplar.tombo(), exemplar);
+            }
+        }
     }
 
     Exemplar localizarExemplar(String tombo) throws RecursoNaoEncontradoException {

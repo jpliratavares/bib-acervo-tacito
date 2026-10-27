@@ -1,9 +1,12 @@
 package br.ufpb.dcx.poo.biblioteca.inicial;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 
 /** Reserva ativa na fila FIFO de um item. */
-final class Reserva {
+final class Reserva implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private final String id;
     private final String codigoDoItem;
